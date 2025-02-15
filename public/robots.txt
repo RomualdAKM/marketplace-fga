@@ -1,0 +1,4 @@
+User-agent: *
+Disallow:
+Sitemap: https://shop.fga-numerik.fr/sitemap.xml
+Sitemap: https://ayinon-herboristerie.fga-numerik.fr/sitemap.xml
