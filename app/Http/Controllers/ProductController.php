@@ -14,8 +14,6 @@ class ProductController extends Controller
 {
     public function add_product(Request $request)
     {
-       // dd($request->all());
-
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -24,25 +22,28 @@ class ProductController extends Controller
             'stock' => 'required',
             'stock_alert' => 'required',
             'category_id' => 'required|string|max:255',
-            // 'variations' => 'required|array',
-            // 'variations.*.name' => 'required|string|max:255',
-            // 'variations.*.options' => 'required|array',
-            // 'variations.*.options.*.name' => 'required|string|max:255',
-            // 'variations.*.options.*.additional_price' => 'required|numeric|min:0',
+            'shop_id' => 'required|exists:shops,id',
             'images' => 'required|array',
             'images.*' => 'image',
-            // 'images.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
         if ($validator->fails()) {
-            $response = [
+            return response()->json([
                 'success' => false,
                 'message' => $validator->errors()
-            ];
-            return response()->json($response, 200);
+            ], 200);
         }
 
-        // Créer le produit
+        // Verify user owns the shop
+        $shop = Shop::findOrFail($request->shop_id);
+        if ($shop->user_id !== auth()->id()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized access to this shop'
+            ], 403);
+        }
+
+        // Create product
         $product = new Product();
         $product->name = $request->name;
         $product->description = $request->description;
@@ -51,45 +52,58 @@ class ProductController extends Controller
         $product->stock = $request->stock;
         $product->stock_alert = $request->stock_alert;
         $product->category_id = $request->category_id;
+        $product->shop_id = $request->shop_id;
         $product->save();
 
-        // Ajouter les variations et les options
-        foreach ($request->variations as $variation) {
-            $productVariation = new ProductVariation();
-            $productVariation->product_id = $product->id;
-            $productVariation->name = $variation['name'] ?? 'Aucune';
-            $productVariation->save();
+        // Add variations and options
+        if ($request->has('variations')) {
+            foreach ($request->variations as $variation) {
+                $productVariation = ProductVariation::create([
+                    'product_id' => $product->id,
+                    'name' => $variation['name'] ?? 'Aucune',
+                    'shop_id' => $request->shop_id
+                ]);
 
-            foreach ($variation['options'] as $option) { 
-                $variationOption = new ProductVariationOption();
-                $variationOption->product_variation_id = $productVariation->id;
-                $variationOption->name = $option['name'] ?? 'Aucune';
-                $variationOption->additional_price = $option['additional_price'] ?? '0';
-                $variationOption->save();
+                foreach ($variation['options'] as $option) {
+                    ProductVariationOption::create([
+                        'product_variation_id' => $productVariation->id,
+                        'name' => $option['name'] ?? 'Aucune',
+                        'additional_price' => $option['additional_price'] ?? '0',
+                        'shop_id' => $request->shop_id
+                    ]);
+                }
             }
         }
 
-        // Gérer les images du produit
+        // Handle product images
         if ($request->hasFile('images')) {
             foreach ($request->file('images') as $image) {
-                $path = $image->store('product_images', 'public');
+                $path = $image->store("shops/{$shop->id}/products", 'public');
                 ProductImage::create([
                     'product_id' => $product->id,
                     'image_url' => $path,
+                    'shop_id' => $request->shop_id
                 ]);
             }
         }
 
-        $response = [
+        return response()->json([
             'success' => true,
-            'message' => 'Succès'
-        ];
-
-        return response()->json($response, 200);
+            'message' => 'Produit ajouté avec succès'
+        ], 200);
     }
-    public function update_product(Request $request,$id)
+
+    public function update_product(Request $request, $id)
     {
-    //dd($request->existing_images);
+        $product = Product::findOrFail($id);
+
+        // Check if user owns the shop
+        if ($product->shop->user_id !== auth()->id()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized access'
+            ], 403);
+        }
 
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
@@ -99,161 +113,143 @@ class ProductController extends Controller
             'stock' => 'required',
             'stock_alert' => 'required',
             'category_id' => 'required|string|max:255',
-            // 'variations' => 'required|array',
-            // 'variations.*.name' => 'required|string|max:255',
-            // 'variations.*.options' => 'required|array',
-            // 'variations.*.options.*.name' => 'required|string|max:255',
-            // 'variations.*.options.*.additional_price' => 'required|numeric|min:0',
             'existing_images' => 'required|array',
-            // 'existing_images.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048', 
         ]);
 
         if ($validator->fails()) {
-            $response = [
+            return response()->json([
                 'success' => false,
                 'message' => $validator->errors()
-            ];
-            return response()->json($response, 200);
+            ], 200);
         }
 
-        // Créer le produit
-        $product =  Product::find($id);
-        $product->name = $request->name;
-        $product->description = $request->description;
-        $product->base_price = $request->base_price;
-        $product->status = $request->status;
-        $product->stock = $request->stock;
-        $product->stock_alert = $request->stock_alert;
-        $product->category_id = $request->category_id;
-        $product->save();
+        $product->update([
+            'name' => $request->name,
+            'description' => $request->description,
+            'base_price' => $request->base_price,
+            'status' => $request->status,
+            'stock' => $request->stock,
+            'stock_alert' => $request->stock_alert,
+            'category_id' => $request->category_id
+        ]);
 
-        // Ajouter les variations et les options
-        // Récupère tout les variations du produit
-        $productVariations = ProductVariation::where('product_id', $product->id)->get();
+        // Handle variations
+        if ($request->has('variations')) {
+            $product->productvariations()->whereNotIn('id', 
+                collect($request->variations)->pluck('id')->filter()
+            )->delete();
 
-        // Supprime les variations qui ne sont plus dans la liste des variations existantes
-        foreach ($productVariations as $productVariation) {
-            if (!in_array($productVariation->id, array_column($request->variations, 'id'))) {
-                $productVariation->delete();
-            }
-        }
+            foreach ($request->variations as $variation) {
+                $productVariation = ProductVariation::updateOrCreate(
+                    [
+                        'id' => $variation['id'] ?? null,
+                        'product_id' => $product->id
+                    ],
+                    [
+                        'name' => $variation['name'] ?? 'Aucune',
+                        'shop_id' => $product->shop_id
+                    ]
+                );
 
-        // Ajouter les nouvelles variations
-        foreach ($request->variations as $variation) {
-            if (isset($variation['id']) && ($productVariation = ProductVariation::find($variation['id']))) {
-                $productVariation->name = $variation['name'] ?? 'Aucune';
-                $productVariation->save();
-            } else {
-                $productVariation = ProductVariation::create([
-                    'product_id' => $product->id,
-                    'name' => $variation['name'] ?? 'Aucune',
-                ]);
-            }
+                if (isset($variation['options'])) {
+                    $productVariation->productvariationoptions()->whereNotIn('id',
+                        collect($variation['options'])->pluck('id')->filter()
+                    )->delete();
 
-            // Récupère tout les options de la variation
-            $productVariationOptions = ProductVariationOption::where('product_variation_id', $productVariation->id)->get();
-
-            // Supprime les options qui ne sont plus dans la liste des options existantes
-            foreach ($productVariationOptions as $productVariationOption) {
-                if (!in_array($productVariationOption->id, array_column($variation['options'], 'id'))) {
-                    $productVariationOption->delete();
-                }
-            }
-
-            // Ajouter les nouvelles options
-            foreach ($variation['options'] as $option) { 
-                if (isset($option['id']) && ($variationOption = ProductVariationOption::find($option['id']))) {
-                    $variationOption->name = $option['name'] ?? 'Aucune';
-                    $variationOption->additional_price = $option['additional_price'] ?? '0';
-                    $variationOption->save();
-                } else {
-                    ProductVariationOption::create([
-                        'product_variation_id' => $productVariation->id,
-                        'name' => $option['name'] ?? 'Aucune',
-                        'additional_price' => $option['additional_price'] ?? '0',
-                    ]);
+                    foreach ($variation['options'] as $option) {
+                        ProductVariationOption::updateOrCreate(
+                            [
+                                'id' => $option['id'] ?? null,
+                                'product_variation_id' => $productVariation->id
+                            ],
+                            [
+                                'name' => $option['name'] ?? 'Aucune',
+                                'additional_price' => $option['additional_price'] ?? '0',
+                                'shop_id' => $product->shop_id
+                            ]
+                        );
+                    }
                 }
             }
         }
 
-      
+        // Handle images
+        $product->productimages()->whereNotIn('image_url', $request->existing_images)->delete();
 
-        // Gérer les nouvelles images du produit
-        // Récupère tout les images du produit
-        $productImages = ProductImage::where('product_id', $product->id)->get();
-
-        // Supprime les images qui ne sont plus dans la liste des images existantes
-        foreach ($productImages as $productImage) {
-            if (!in_array($productImage->image_url, $request->existing_images)) {
-                $productImage->delete();
-            }
-        }
-
-        // Ajoute les nouvelles images
         if ($request->hasFile('images')) {
             foreach ($request->file('images') as $image) {
-                $path = $image->store('product_images', 'public');
+                $path = $image->store("shops/{$product->shop_id}/products", 'public');
                 ProductImage::create([
                     'product_id' => $product->id,
                     'image_url' => $path,
+                    'shop_id' => $product->shop_id
                 ]);
             }
         }
 
-        $response = [
+        return response()->json([
             'success' => true,
-            'message' => 'Succès'
-        ];
-
-        return response()->json($response, 200);
+            'message' => 'Produit mis à jour avec succès'
+        ], 200);
     }
 
-
-    public function get_products() {
-
-        $products = Product::with('category','productimages')->latest()->get();
-
-        return  $products;
+    public function get_products()
+    {
+        // If admin, get all products, else get only shop products
+        if (auth()->user()->isAdmin()) {
+            $products = Product::with(['category', 'productimages', 'shop'])->latest()->get();
+        } else {
+            $products = Product::whereIn('shop_id', auth()->user()->shops->pluck('id'))
+                ->with(['category', 'productimages', 'shop'])
+                ->latest()
+                ->get();
+        }
+        return $products;
     }
 
-    public function get_new_products() {
-
-        $products = Product::where('status', 'true')->with('category', 'productimages','reviews','productvariations.productvariationoptions')
+    public function get_new_products()
+    {
+        return Product::where('status', 'true')
+            ->with(['category', 'productimages', 'reviews', 'productvariations.productvariationoptions', 'shop'])
             ->latest()
             ->limit(8)
             ->get();
-
-        return  $products;
     }
-    
-    public function get_all_products() {
 
-        $products = Product::where('status', 'true')->with('category','reviews', 'productimages','productvariations.productvariationoptions')
+    public function get_all_products()
+    {
+        return Product::where('status', 'true')
+            ->with(['category', 'reviews', 'productimages', 'productvariations.productvariationoptions', 'shop'])
             ->latest()
             ->get();
-
-        return  $products;
     }
 
-
-    public function delete_product($id) {
-
-        $product = Product::find($id);
+    public function delete_product($id)
+    {
+        $product = Product::findOrFail($id);
         
+        // Check if user owns the shop
+        if ($product->shop->user_id !== auth()->id() && !auth()->user()->isAdmin()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized access'
+            ], 403);
+        }
+
         $product->delete();
-       
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Produit supprimé avec succès'
+        ], 200);
     }
 
-    public function get_product($id) {
+    public function get_product($id)
+    {
+        $product = Product::where('id', $id)
+            ->with(['category', 'productimages', 'reviews', 'productvariations.productvariationoptions', 'shop'])
+            ->firstOrFail();
 
-        $product = Product::where('id', $id)->with('category', 'productimages','reviews','productvariations','productvariations.productvariationoptions')
-            ->first();
-
-            // SEO::set('title', $product->name);
-            // SEO::set('description', $product->description);
-            // SEO::set('image', $product->image_url);
-
-        return  $product;
-
+        return $product;
     }
 }

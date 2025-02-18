@@ -23,6 +23,7 @@ return new class extends Migration
             $table->foreignId('delivery_city_id')->constrained()->onDelete('cascade');
             $table->foreignId('order_id')->constrained()->onDelete('cascade');
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->foreignId('shop_id')->constrained()->onDelete('cascade');
 
             $table->timestamps();
         });

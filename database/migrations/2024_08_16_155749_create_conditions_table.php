@@ -17,6 +17,7 @@ return new class extends Migration
             $table->id();
             $table->string('title')->nullable();
             $table->text('description')->nullable();
+            $table->foreignId('shop_id')->constrained()->onDelete('cascade');
 
             $table->timestamps();
         });

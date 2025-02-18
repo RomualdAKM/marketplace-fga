@@ -13,32 +13,39 @@ class ContactController extends Controller
 {
     public function send_mail(Request $request)
     {
-
-
         $validator = Validator::make($request->all(), [
             'message' => 'required',
-            // 'subject' => 'required',
-            // 'number' => 'required',
             'name' => 'required',
-          
             'email' => 'required|email',
+            'shop_id' => 'required|exists:shops,id'
         ]);
-    
+
         if ($validator->fails()) {
-            $response = [
+            return response()->json([
                 'success' => false,
                 'message' => $validator->errors()
-            ];
-            return response()->json(
-                $response,
-                200
-            );
+            ], 200);
         }
 
-        $shop = Shop::find('1');
+        $shop = Shop::findOrFail($request->shop_id);
 
-        Mail::to('romuald91303142@gmail.com')->send(new ContactMail($request->message,$request->subject,$request->name,$request->email,$request->number,$shop->name));
-        Mail::to($shop->email)->send(new ContactMail($request->message,$request->subject,$request->name,$request->email,$request->number,$shop->name));
+        Mail::to('romuald91303142@gmail.com')->send(new ContactMail(
+            $request->message,
+            $request->subject,
+            $request->name,
+            $request->email,
+            $request->number,
+            $shop->name
+        ));
+
+        Mail::to($shop->email)->send(new ContactMail(
+            $request->message,
+            $request->subject,
+            $request->name,
+            $request->email,
+            $request->number,
+            $shop->name
+        ));
 
         $message = new Contact();
         $message->message = $request->message;
@@ -46,15 +53,12 @@ class ContactController extends Controller
         $message->number = $request->number;
         $message->email = $request->email;
         $message->subject = $request->subject;
+        $message->shop_id = $shop->id;
         $message->save();
 
-            $response = [
-                'success' => true,
-                'message' => "customer update successfully"
-            ];
-            return response()->json(
-                $response,
-                200
-            );
-        }
-}
+        return response()->json([
+            'success' => true,
+            'message' => "Contact message sent successfully"
+        ], 200);
+    }
+    }

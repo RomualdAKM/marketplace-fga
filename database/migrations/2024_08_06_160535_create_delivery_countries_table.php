@@ -16,6 +16,8 @@ return new class extends Migration
         Schema::create('delivery_countries', function (Blueprint $table) {
             $table->id();
             $table->string('country_name')->nullable();
+            $table->foreignId('shop_id')->constrained()->onDelete('cascade');
+
             $table->timestamps();
         });
     }

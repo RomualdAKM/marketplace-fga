@@ -9,57 +9,56 @@ use Illuminate\Support\Facades\Validator;
 class ConfidentialityController extends Controller
 {
     public function edit_confidentiality(Request $request){
-
-        //dd($request->all());
-
         $validator = Validator::make($request->all(), [
             'title' => 'required',
-            'description' => 'required',          
+            'description' => 'required',
+            'shop_id' => 'required|exists:shops,id'
         ]);
     
         if ($validator->fails()) {
-            $response = [
+            return response()->json([
                 'success' => false,
                 'message' => $validator->errors()
-            ];
-            return response()->json(
-                $response,
-                200
-            );
+            ], 200);
         }
     
-        $confidentiality = Confidentiality::find('1');
-
-        
+        $confidentiality = Confidentiality::where('shop_id', $request->shop_id)->first();
 
         if ($confidentiality) {
             $confidentiality->title = $request->title;
             $confidentiality->description = $request->description;
+            $confidentiality->shop_id = $request->shop_id;
             $confidentiality->save();
         } else {
-           $confidentiality = new Confidentiality();
-           $confidentiality->title = $request->title;
-            $confidentiality->description = $request->description;
-           $confidentiality->save();
-
+            $confidentiality = Confidentiality::create([
+                'title' => $request->title,
+                'description' => $request->description,
+                'shop_id' => $request->shop_id
+            ]);
         }
 
-        $response = [
+        return response()->json([
             'success' => true,
             'message' => 'success'
-        ];
-
-        return response()->json(
-            $response,
-            200
-        );
-
+        ], 200);
     }
 
-    public function get_confidentiality(){
+    public function get_confidentiality(Request $request){
+        $validator = Validator::make($request->all(), [
+            'shop_id' => 'required|exists:shops,id'
+        ]);
 
-        $confidentiality = Confidentiality::first();
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()
+            ], 200);
+        }
 
-        return $confidentiality;
+        $confidentiality = Confidentiality::where('shop_id', $request->shop_id)->first();
+        return response()->json([
+            'success' => true,
+            'data' => $confidentiality
+        ], 200);
     }
 }

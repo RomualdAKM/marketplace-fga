@@ -18,6 +18,7 @@ return new class extends Migration
             $table->string('city_name')->nullable();
             $table->string('city_price')->nullable();
             $table->foreignId('delivery_country_id')->constrained()->onDelete('cascade');
+            $table->foreignId('shop_id')->constrained()->onDelete('cascade');
 
             $table->timestamps();
         });

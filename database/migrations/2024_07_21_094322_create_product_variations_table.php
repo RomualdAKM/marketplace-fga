@@ -18,6 +18,8 @@ return new class extends Migration
             $table->foreignId('product_id')->constrained()->onDelete('cascade');
             $table->string('name')->nullable();
             $table->text('description')->nullable();
+            $table->foreignId('shop_id')->constrained()->onDelete('cascade');
+
             $table->timestamps();
         });
     }

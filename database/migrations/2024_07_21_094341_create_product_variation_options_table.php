@@ -19,6 +19,8 @@ return new class extends Migration
             $table->integer('stock')->nullable();
             $table->foreignId('product_variation_id')->constrained('product_variations')->onDelete('cascade');
             $table->decimal('additional_price', 10, 2)->nullable();
+            $table->foreignId('shop_id')->constrained()->onDelete('cascade');
+
             $table->timestamps();
         });
     }

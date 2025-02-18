@@ -22,6 +22,7 @@ return new class extends Migration
             $table->text('status')->nullable();
             $table->decimal('base_price', 10, 2)->nullable();
             $table->foreignId('category_id')->constrained()->onDelete('cascade');
+            $table->foreignId('shop_id')->constrained()->onDelete('cascade');
 
             $table->timestamps();
         });

@@ -17,6 +17,8 @@ return new class extends Migration
             $table->id();
             $table->string('code')->nullable();
             $table->string('percentage')->nullable();
+            $table->foreignId('shop_id')->constrained()->onDelete('cascade');
+
             $table->timestamps();
         });
     }

@@ -20,6 +20,8 @@ return new class extends Migration
             $table->string('email');
             $table->integer('rating');
             $table->text('comment');
+            $table->foreignId('shop_id')->constrained()->onDelete('cascade');
+
             $table->timestamps();
         });
     }

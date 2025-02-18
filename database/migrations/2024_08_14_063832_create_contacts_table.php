@@ -20,6 +20,8 @@ return new class extends Migration
             $table->string('number')->nullable();
             $table->text('message')->nullable();
             $table->text('subject')->nullable();
+            $table->foreignId('shop_id')->constrained()->onDelete('cascade');
+
             $table->timestamps();
         });
     }

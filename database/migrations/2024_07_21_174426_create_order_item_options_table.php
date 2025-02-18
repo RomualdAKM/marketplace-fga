@@ -18,6 +18,8 @@ return new class extends Migration
             $table->foreignId('order_item_id')->constrained('order_items')->onDelete('cascade');
             $table->foreignId('variation_option_id')->constrained('product_variation_options')->onDelete('cascade');
             $table->decimal('additional_price', 10, 2);
+            $table->foreignId('shop_id')->constrained()->onDelete('cascade');
+
             $table->timestamps();
         });
     }
